@@ -70,16 +70,8 @@ class AmazonScrape < Scrape
 			# }
 		}
 	} 
-	
 
-	def get_product_price(html, doc)
-		if get_attribute(html, doc) == nil
-			get_attribute("b.priceLarge", doc)
-		else
-			get_attribute(html, doc)
-		end
-	end
-
+	# called directly on the instance object to scrape a list of products based on their ID's. Grabs raw datat from hash and cleans into a hash for each product.
 	def scrape_products(products)
 		products.each do |product|
 			product_setup(@@product_attributes, product, @@base, @@before_id, @@after_id)
@@ -87,6 +79,7 @@ class AmazonScrape < Scrape
 		clean_product_info
 	end
 
+	# loops through products scraped and determines what type they are to delegate to the appropriate data cleaning method.
 	def clean_product_info
 		@products.each do |product, attributes|
 			p attributes[:type]
@@ -102,13 +95,10 @@ class AmazonScrape < Scrape
 	end
 
 	def clean_kindle_info(product, attributes)
+		# 1) Takes the number of pages string and extracts the number
 		attributes[:pages] = attributes[:pages][/\d+/].to_i
-		# Converting review counts to integers
-		attributes[:five_star] = attributes[:five_star].gsub(/,/, '').to_i 
-		attributes[:four_star] = attributes[:four_star].gsub(/,/, '').to_i 
-		attributes[:three_star] = attributes[:three_star].gsub(/,/, '').to_i 
-		attributes[:two_star] = attributes[:two_star].gsub(/,/, '').to_i 
-		attributes[:one_star] = attributes[:one_star].gsub(/,/, '').to_i  
+		# 2) Converting review counts to integers
+		convert_ratings_to_int(attributes, ['five_star', 'four_star', 'three_star', 'two_star', 'one_star'])
 	end
 
 	def clean_book_info(product, attributes)
@@ -116,6 +106,7 @@ class AmazonScrape < Scrape
 	end
 
 	def clean_default_info(product, attributes)
+		# If a list price exists, calculate the discount of the actual price
 		# list_price = attributes[:list_price].to_i
 		# actual_price = attributes[:price].to_i
 		# if list_price.nil?
@@ -123,12 +114,25 @@ class AmazonScrape < Scrape
 		# else
 		# 	attributes[:discount] = (list_price - actual_price) / list_price
 		# end
+
+		# Takes the raw ratings histogram data and maps substrings to each star rating as a hash.
 		all_ratings = attributes[:ratings].squish
-		attributes[:ratings][:five_star] = all_ratings[all_ratings.index('5 star')+7..all_ratings.length][/\d+/]
-		attributes[:ratings][:four_star] = all_ratings[all_ratings.index('4 star')+7..all_ratings.length][/\d+/]
-		attributes[:ratings][:three_star] = all_ratings[all_ratings.index('3 star')+7..all_ratings.length][/\d+/]
-		attributes[:ratings][:two_star] = all_ratings[all_ratings.index('2 star')+7..all_ratings.length][/\d+/]
-		attributes[:ratings][:one_star] = all_ratings[all_ratings.index('1 star')+7..all_ratings.length][/\d+/]
+		attributes.tap { |hs| hs.delete(:ratings) }
+		match_default_star_ratings_counts(attributes, all_ratings, ['five_star', 'four_star', 'three_star', 'two_star', 'one_star'])
+	end
+
+	def match_default_star_ratings_counts(attributes, string, keys)
+		i = 5
+		keys.each do |key|
+			attributes["#{key}".to_sym] = string[string.index("#{i} star")+7..string.length][/\d+/]
+			i -= 1
+		end
+	end
+
+	def convert_ratings_to_int(attributes, keys)
+		keys.each do |key|
+			attributes["#{key}".to_sym] = attributes["#{key}".to_sym].gsub(/,/, '').to_i
+		end
 	end
 
 end

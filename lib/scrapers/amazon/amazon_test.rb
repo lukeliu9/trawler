@@ -14,7 +14,7 @@ quick = ['B00598N0WI']
 
 batch1 = AmazonScrape.new("Amazon")
 
-batch1.scrape_products(quick)
+batch1.scrape_products(kindle_books)
 
 batch1.print_product_info
 
