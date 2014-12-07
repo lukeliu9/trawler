@@ -14,22 +14,8 @@ class Scrape
 		end
 	end
 
-	def get_xpath_attribute(html, doc)
-		output = remove_html_tags(doc.xpath(Nokogiri::CSS.xpath_for(html)).to_s.strip)
-		if output == "" || nil
-			"N/A"
-		else
-			output
-		end
-	end
-
 	def perform_css_scrape(html, doc, product, attribute)
 		output = get_css_attribute(html, doc)
-		@products[product][attribute] = output
-	end
-
-	def perform_xpath_scrape(html, doc, product, attribute)
-		output = get_xpath_attribute(html, doc)
 		@products[product][attribute] = output
 	end
 
@@ -50,21 +36,6 @@ class Scrape
 		end
 	end
 
-	def get_xpath_attribute_info(product, attributes, doc)
-		attributes.each do |attribute, html|
-			if html.kind_of?(Hash)
-				html.each do |option, markup|
-					if get_xpath_attribute(markup, doc) != nil
-						perform_xpath_scrape(markup, doc, product, attribute)
-						break
-					end
-				end
-			else
-				perform_xpath_scrape(html, doc, product, attribute)
-			end
-		end
-	end
-
 	def product_setup(attributes, product_id, base, before_id, after_id)
 		url = "#{base}#{before_id}#{product_id}#{after_id}"  
 		tries ||= 10
@@ -74,7 +45,7 @@ class Scrape
 		rescue OpenURI::HTTPError
 			tries -= 1
 			if tries > 0
-				puts "attempts remaining: #{tries}"
+				# puts "attempts remaining: #{tries}"
 				sleep 3
 		    	retry
 			else
@@ -85,7 +56,6 @@ class Scrape
 				# Loops through master product attributes hash to determine the product type and which nested hash to loop through
 				if get_css_attribute(value[:identifier_tag], doc).include?(value[:identifier])
 					get_css_attribute_info(product_id, value[:attributes], doc, key)
-					# get_xpath_attribute_info(product_id, value[:xpath], doc)
 					break
 				end
 			end
