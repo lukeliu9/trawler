@@ -1,49 +1,115 @@
 class Scrape
 
-	def get_attribute(html, doc)
-		remove_html_tags(doc.css(html).to_s.strip)
+	def initialize(company)
+		@products = {}
+		@company = company
 	end
 
-	def print_product_info(products)
-		products.each do |key, value|
-			if key == "title"
-				puts "\n#{value}"
+	def get_css_attribute(html, doc)
+		output = remove_html_tags(doc.css(html).to_s.strip)
+		if output == "" || nil
+			"N/A"
+		else
+			output
+		end
+	end
+
+	def get_xpath_attribute(html, doc)
+		output = remove_html_tags(doc.xpath(Nokogiri::CSS.xpath_for(html)).to_s.strip)
+		if output == "" || nil
+			"N/A"
+		else
+			output
+		end
+	end
+
+	def perform_css_scrape(html, doc, product, attribute)
+		output = get_css_attribute(html, doc)
+		@products[product][attribute] = output
+	end
+
+	def perform_xpath_scrape(html, doc, product, attribute)
+		output = get_xpath_attribute(html, doc)
+		@products[product][attribute] = output
+	end
+
+	def get_css_attribute_info(product, attributes, doc, key)
+		@products[product] = {}
+		@products[product][:type] = key
+		attributes.each do |attribute, html|
+			if html.kind_of?(Hash)
+				html.each do |option, markup|
+					if get_css_attribute(markup, doc) != nil
+						perform_css_scrape(markup, doc, product, attribute)
+						break
+					end
+				end
 			else
-				puts "\t -> #{key}: #{value}"
+				perform_css_scrape(html, doc, product, attribute)
 			end
 		end
 	end
 
-	def get_attribute_info(attributes, doc)
-		product_hash = {}
+	def get_xpath_attribute_info(product, attributes, doc)
 		attributes.each do |attribute, html|
-			output = get_attribute(html, doc)
-			product_hash["#{attribute}"] = output
+			if html.kind_of?(Hash)
+				html.each do |option, markup|
+					if get_xpath_attribute(markup, doc) != nil
+						perform_xpath_scrape(markup, doc, product, attribute)
+						break
+					end
+				end
+			else
+				perform_xpath_scrape(html, doc, product, attribute)
+			end
 		end
-		print_product_info(product_hash)
 	end
 
-	def perform_scrape(attributes, product_id, base, before_id, after_id)
+	def product_setup(attributes, product_id, base, before_id, after_id)
 		url = "#{base}#{before_id}#{product_id}#{after_id}"  
-		tries ||= 5
+		tries ||= 10
 		# Amazon URL's randomly raise http 303 errors so trying them again after a pause is a good solution
 		begin
 			doc = Nokogiri::HTML(open(url))
 		rescue OpenURI::HTTPError
 			tries -= 1
 			if tries > 0
-				sleep 5
+				puts "attempts remaining: #{tries}"
+				sleep 3
 		    	retry
 			else
-		   		logger.info "Failed too many times!"
+		   		puts "Failed too many times!"
 			end
-		else	
-			get_attribute_info(attributes, doc)
+		else
+			attributes.each do |key, value|
+				# Loops through master product attributes hash to determine the product type and which nested hash to loop through
+				if get_css_attribute(value[:identifier_tag], doc).include?(value[:identifier])
+					get_css_attribute_info(product_id, value[:attributes], doc, key)
+					# get_xpath_attribute_info(product_id, value[:xpath], doc)
+					break
+				end
+			end
+		end
+	end
+
+	# Prints scrape info to console, for testing purposes
+	def print_product_info
+		@products.each do |product, attributes|
+			puts "\n#{@company} ID: #{product}"
+			attributes.each do |attribute, value|
+				if attribute == "title" or attribute == "name"
+					puts "   #{value}"
+				else
+					puts "\t -> #{attribute}: #{value}"
+				end
+			end
 		end
 	end
 
 	def save_to_redis
 	end
+
+	# Helper methods
 
 	def remove_html_tags(string)
 	    re = /<("[^"]*"|'[^']*'|[^'">])*>/
