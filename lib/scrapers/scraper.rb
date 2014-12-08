@@ -14,22 +14,8 @@ class Scrape
 		end
 	end
 
-	def get_xpath_attribute(html, doc)
-		output = remove_html_tags(doc.xpath(Nokogiri::CSS.xpath_for(html)).to_s.strip)
-		if output == "" || nil
-			"N/A"
-		else
-			output
-		end
-	end
-
 	def perform_css_scrape(html, doc, product, attribute)
 		output = get_css_attribute(html, doc)
-		@products[product][attribute] = output
-	end
-
-	def perform_xpath_scrape(html, doc, product, attribute)
-		output = get_xpath_attribute(html, doc)
 		@products[product][attribute] = output
 	end
 
@@ -50,24 +36,9 @@ class Scrape
 		end
 	end
 
-	def get_xpath_attribute_info(product, attributes, doc)
-		attributes.each do |attribute, html|
-			if html.kind_of?(Hash)
-				html.each do |option, markup|
-					if get_xpath_attribute(markup, doc) != nil
-						perform_xpath_scrape(markup, doc, product, attribute)
-						break
-					end
-				end
-			else
-				perform_xpath_scrape(html, doc, product, attribute)
-			end
-		end
-	end
-
 	def product_setup(attributes, product_id, base, before_id, after_id)
 		url = "#{base}#{before_id}#{product_id}#{after_id}"  
-		tries ||= 10
+		tries ||= 20
 		# Amazon URL's randomly raise http 303 errors so trying them again after a pause is a good solution
 		begin
 			doc = Nokogiri::HTML(open(url))
