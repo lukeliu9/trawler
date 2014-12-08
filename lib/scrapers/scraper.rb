@@ -38,7 +38,7 @@ class Scrape
 
 	def product_setup(attributes, product_id, base, before_id, after_id)
 		url = "#{base}#{before_id}#{product_id}#{after_id}"  
-		tries ||= 10
+		tries ||= 20
 		# Amazon URL's randomly raise http 303 errors so trying them again after a pause is a good solution
 		begin
 			doc = Nokogiri::HTML(open(url))

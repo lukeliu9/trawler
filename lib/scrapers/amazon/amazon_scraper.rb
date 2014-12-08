@@ -82,7 +82,6 @@ class AmazonScrape < Scrape
 	# loops through products scraped and determines what type they are to delegate to the appropriate data cleaning method.
 	def clean_product_info
 		@products.each do |product, attributes|
-			p attributes[:type]
 			case attributes[:type]
 			when :book
 				clean_book_info(product, attributes)
@@ -96,36 +95,79 @@ class AmazonScrape < Scrape
 
 	def clean_kindle_info(product, attributes)
 		# 1) Takes the number of pages string and extracts the number
-		attributes[:pages] = attributes[:pages][/\d+/].to_i
+		calculate_pages(attributes)
 		# 2) Converting review counts to integers
 		convert_ratings_to_int(attributes, ['five_star', 'four_star', 'three_star', 'two_star', 'one_star'])
 	end
 
 	def clean_book_info(product, attributes)
+		# 1) Decide if the book is paperback or hardcover
 		attributes[:form_factor] = attributes[:form_factor].include?("Paperback") ? "Paperback" : "Hardcover"
+		# 2) Extract release date
+		
 	end
 
 	def clean_default_info(product, attributes)
-		# If a list price exists, calculate the discount of the actual price
-		# list_price = attributes[:list_price].to_i
-		# actual_price = attributes[:price].to_i
-		# if list_price.nil?
-		# 	attributes[:discount] = "N/A"
-		# else
-		# 	attributes[:discount] = (list_price - actual_price) / list_price
-		# end
-
-		# Takes the raw ratings histogram data and maps substrings to each star rating as a hash.
-		all_ratings = attributes[:ratings].squish
-		attributes.tap { |hs| hs.delete(:ratings) }
-		match_default_star_ratings_counts(attributes, all_ratings, ['five_star', 'four_star', 'three_star', 'two_star', 'one_star'])
+		# 1) Takes the raw ratings histogram data and maps substrings to each star rating as a hash.
+		match_default_star_ratings_counts(attributes, ['five_star', 'four_star', 'three_star', 'two_star', 'one_star'])
+		# 2) Loop through raw text in the breadcrumb on the product page and dynamically create categorizations based on number of levels found
+		set_product_categorization(attributes)
+		# 3) Cleans availiability text
+		clean_availability_text(attributes)
+		# 4) Calculate discount from list price and sale price
+		calculate_discount(attributes)
 	end
 
-	def match_default_star_ratings_counts(attributes, string, keys)
+	def match_default_star_ratings_counts(attributes, keys)
+		string = attributes[:ratings].squish
+		attributes.tap { |hs| hs.delete(:ratings) }
 		i = 5
 		keys.each do |key|
 			attributes["#{key}".to_sym] = string[string.index("#{i} star")+7..string.length][/\d+/]
 			i -= 1
+		end
+	end
+
+	def set_product_categorization(attributes)
+		if attributes[:breadcrumb].nil?
+			attributes[:breadcrumb] = "N/A"
+		else
+			cat_array = attributes[:breadcrumb].squish.split('›').map(&:strip)
+			attributes.tap { |hs| hs.delete(:breadcrumb) }
+			i = 1
+			cat_array.each do |string|
+				attributes["cat_level_#{i}".to_sym] = string.gsub(/&amp;/, '&')
+				i += 1
+			end
+		end
+	end
+
+	def clean_availability_text(attributes)
+		if attributes[:availability].nil?
+			attributes[:availability] = "N/A"
+		else
+			string = attributes[:availability]
+			attributes[:availability] = string.strip.gsub('.', '')
+		end
+	end
+
+	def calculate_discount(attributes)
+		list = attributes[:list_price].nil? ? nil : attributes[:list_price].gsub('$','').to_i
+		sale = attributes[:price].gsub('$','').to_i
+		if list == nil
+			discount = "N/A"
+		else
+			discount = (list.to_f - sale.to_f) / list.to_f
+			discount = discount.round(4)
+		end
+		attributes[:discount] = discount
+	end
+
+	def calculate_pages(attributes)
+		if attributes[:pages].nil?
+			attributes[:pages] = "N/A"
+		else
+			attributes[:pages] = attributes[:pages][/\d+/].to_i
 		end
 	end
 

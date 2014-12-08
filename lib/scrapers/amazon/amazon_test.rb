@@ -14,7 +14,7 @@ quick = ['B00598N0WI']
 
 batch1 = AmazonScrape.new("Amazon")
 
-batch1.scrape_products(kindle_books)
+batch1.scrape_products(product_list)
 
 batch1.print_product_info
 
@@ -25,7 +25,7 @@ batch1.print_product_info
 
 
 # p doc.xpath(Nokogiri::CSS.xpath_for('span#productTitle'))
-# string = doc.css('table#histogramTable').to_s.strip.gsub!(/<("[^"]*"|'[^']*'|[^'">])*>/, '').squish
+# string = doc.css('div.detailBreadcrumb').to_s.strip.gsub!(/<("[^"]*"|'[^']*'|[^'">])*>/, '').squish.split('›').map(&:strip)
 # doc = Nokogiri::HTML(open("http://www.amazon.com/gp/product/B0045UAEQG/ref=s9_al_bw_g201_i5?pf_rd_m=ATVPDKIKX0DER&pf_rd_s=merchandised-search-4&pf_rd_r=1BPMQVNB7NAQ309Q7YW7&pf_rd_t=101&pf_rd_p=1970352382&pf_rd_i=1057792"))
 
 # irb(main):011:0> doc.css('table#histogramTable').to_s.strip.gsub!(/<("[^"]*"|'[^']*'|[^'">])*>/, '')
